@@ -511,3 +511,57 @@ def test_fetch_daily_history_auto_falls_back_to_baostock(monkeypatch):
 
     assert list(df.columns) == ["date", "open", "high", "low", "close", "volume", "amount"]
     assert len(df) == 2
+
+
+def test_enrich_daily_features_preserves_us_ticker_codes(monkeypatch):
+    candidates = pd.DataFrame([
+        {"code": "AAPL", "name": "Apple"},
+        {"code": "000001", "name": "平安银行"},
+    ])
+
+    captured_codes = []
+    original_fetch = fetch_daily_history
+
+    def spy_fetch(code, **kwargs):
+        captured_codes.append(code)
+        return pd.DataFrame({
+            "日期": pd.date_range("2026-01-01", periods=40).astype(str),
+            "收盘": [10 + i * 0.1 for i in range(40)],
+        })
+
+    monkeypatch.setattr("alphasift.daily.fetch_daily_history", spy_fetch)
+
+    enrich_daily_features(candidates, max_rows=2, source="akshare", fetch_retries=0)
+
+    assert "AAPL" in captured_codes
+    assert "000001" in captured_codes
+
+
+def test_fetch_daily_history_yfinance_flattens_multiindex(monkeypatch):
+    closes = [150.0 + i for i in range(40)]
+    multi_cols = pd.MultiIndex.from_tuples([
+        ("Close", "AAPL"), ("High", "AAPL"), ("Low", "AAPL"),
+        ("Open", "AAPL"), ("Volume", "AAPL"),
+    ], names=["Price", "Ticker"])
+    hist_df = pd.DataFrame(
+        {
+            ("Close", "AAPL"): closes,
+            ("High", "AAPL"): [c + 1 for c in closes],
+            ("Low", "AAPL"): [c - 1 for c in closes],
+            ("Open", "AAPL"): [c - 0.5 for c in closes],
+            ("Volume", "AAPL"): [1_000_000] * 40,
+        },
+        index=pd.date_range("2026-03-01", periods=40),
+    )
+    hist_df.columns = multi_cols
+
+    fake_yf = types.ModuleType("yfinance")
+    fake_yf.download = lambda *a, **kw: hist_df
+    monkeypatch.setitem(sys.modules, "yfinance", fake_yf)
+
+    from alphasift.snapshot_us import fetch_daily_history_yfinance
+    result = fetch_daily_history_yfinance("AAPL", lookback_days=30)
+
+    assert "收盘" in result.columns
+    assert "日期" in result.columns
+    assert len(result) == 30

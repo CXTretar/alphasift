@@ -70,7 +70,7 @@ def enrich_daily_features(
         raw_code = str(result.at[idx, "code"] if "code" in result.columns else "").strip()
         if not raw_code:
             continue
-        code = raw_code.zfill(6)
+        code = raw_code.zfill(6) if raw_code.isdigit() else raw_code
         fetch_requests.append((idx, code))
 
     def fetch_one(request: tuple[object, str]) -> tuple[object, dict[str, object], str | None]:

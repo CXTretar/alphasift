@@ -108,6 +108,8 @@ def fetch_us_snapshot(
         try:
             if len(tickers) == 1:
                 hist = data.copy()
+                if isinstance(hist.columns, pd.MultiIndex):
+                    hist.columns = hist.columns.droplevel("Ticker")
             else:
                 if ticker not in data.columns.get_level_values(0):
                     return None
@@ -229,6 +231,9 @@ def fetch_daily_history_yfinance(
     )
     if hist is None or hist.empty:
         raise RuntimeError(f"yfinance daily history empty for {ticker}")
+
+    if isinstance(hist.columns, pd.MultiIndex):
+        hist.columns = hist.columns.droplevel("Ticker")
 
     hist = hist.tail(max(lookback_days, 30)).copy()
     hist = hist.rename(columns={
