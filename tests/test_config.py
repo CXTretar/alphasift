@@ -126,6 +126,14 @@ def test_config_reads_fallback_snapshot_path_env(monkeypatch, tmp_path):
     assert config.fallback_snapshot_path == cache_path
 
 
+def test_config_reads_snapshot_fallback_max_age_env(monkeypatch):
+    monkeypatch.setenv("SNAPSHOT_FALLBACK_MAX_AGE_HOURS", "6.5")
+
+    config = Config.from_env()
+
+    assert config.snapshot_fallback_max_age_hours == 6.5
+
+
 def test_config_prefers_tushare_when_token_is_configured(monkeypatch):
     monkeypatch.delenv("SNAPSHOT_SOURCE_PRIORITY", raising=False)
     monkeypatch.setenv("TUSHARE_TOKEN", "token")

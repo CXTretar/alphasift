@@ -240,6 +240,9 @@ class Config:
     # Data directory
     data_dir: Path = _PROJECT_ROOT / "data"
 
+    # Optional guardrail for last-good snapshot fallback freshness.
+    snapshot_fallback_max_age_hours: float | None = None
+
     def has_llm_config(self) -> bool:
         """Return whether any supported LiteLLM configuration is present."""
         return any([
@@ -306,6 +309,9 @@ class Config:
             llm_timeout_sec=max(1.0, _parse_float_env("LLM_TIMEOUT_SEC", 60.0)),
             snapshot_source_priority=_resolve_snapshot_source_priority(),
             fallback_snapshot_path=fallback_snapshot_path,
+            snapshot_fallback_max_age_hours=_parse_optional_float_env(
+                "SNAPSHOT_FALLBACK_MAX_AGE_HOURS"
+            ),
             strategies_dir=_default_strategies_dir(),
             industry_map_files=[
                 Path(item)
@@ -378,6 +384,16 @@ def _parse_float_env(name: str, default: float) -> float:
     if value is None or value == "":
         return default
     return float(value)
+
+
+def _parse_optional_float_env(name: str) -> float | None:
+    value = os.getenv(name)
+    if value is None:
+        return None
+    cleaned = value.strip()
+    if cleaned.lower() in {"", "none", "off", "false"}:
+        return None
+    return float(cleaned)
 
 
 def _parse_llm_channels_env() -> list[dict[str, object]]:

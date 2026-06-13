@@ -520,7 +520,6 @@ def test_enrich_daily_features_preserves_us_ticker_codes(monkeypatch):
     ])
 
     captured_codes = []
-    original_fetch = fetch_daily_history
 
     def spy_fetch(code, **kwargs):
         captured_codes.append(code)

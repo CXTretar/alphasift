@@ -2,7 +2,7 @@
 name: balanced_alpha
 display_name: 均衡多因子
 description: 综合估值、资金、动量、稳定性的通用候选发现策略
-version: "1.0"
+version: "1.1"
 category: framework
 tags: [multi_factor, balanced, llm_friendly]
 
@@ -23,15 +23,17 @@ screening:
     price_max: 220
   tech_weight: 0.35
   factor_weights:
-    value: 0.25
-    liquidity: 0.20
+    value: 0.22
+    liquidity: 0.18
     momentum: 0.20
     activity: 0.15
-    stability: 0.10
+    stability: 0.12
+    reversal: 0.05
     theme_heat: 0.05
-    size: 0.10
+    size: 0.03
   scoring_profile:
     momentum_chase_start_pct: 5.5
+    momentum_chase_penalty_slope: 12.0
     activity_ideal_volume_ratio: 2.0
     activity_ideal_turnover_rate: 4.0
     stability_hot_change_pct: 7.0
@@ -48,6 +50,7 @@ screening:
       AI算力: [AI算力, 算力, 数据中心, 服务器, 光模块]
       新能源: [新能源, 光伏, 锂电, 电池, 储能]
       周期: [钢铁, 煤炭, 有色, 化工]
+      公用事业: [电力, 燃气, 水务, 环保, 公用事业]
   scorecard_profile:
     value_quality_bonus: 2.2
     capital_confirmed_bonus: 1.8

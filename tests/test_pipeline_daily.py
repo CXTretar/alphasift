@@ -3,7 +3,8 @@ from pathlib import Path
 import pandas as pd
 
 from alphasift.config import Config
-from alphasift.pipeline import screen
+from alphasift.pipeline import _sort_screened_candidates, screen
+from alphasift.strategy import ScreeningConfig
 
 
 def test_pipeline_enriches_daily_features_for_daily_strategy(monkeypatch):
@@ -154,3 +155,29 @@ def test_pipeline_passes_industry_provider_cache_config(monkeypatch, tmp_path):
         "provider_cache_dir": cache_dir,
         "provider_cache_ttl_hours": 7,
     }]
+
+
+def test_sort_screened_candidates_uses_strategy_factor_tie_breakers_then_code():
+    df = pd.DataFrame([
+        {"code": "600000", "screen_score": 80, "factor_momentum_score": 70, "factor_stability_score": 90},
+        {"code": "000001", "screen_score": 80, "factor_momentum_score": 70, "factor_stability_score": 90},
+        {"code": "300001", "screen_score": 80, "factor_momentum_score": 75, "factor_stability_score": 10},
+        {"code": "002001", "screen_score": 81, "factor_momentum_score": 20, "factor_stability_score": 20},
+    ])
+    screening = ScreeningConfig(factor_weights={"momentum": 0.7, "stability": 0.3})
+
+    sorted_df = _sort_screened_candidates(df, screening)
+
+    assert list(sorted_df["code"]) == ["002001", "300001", "000001", "600000"]
+
+
+def test_sort_screened_candidates_keeps_default_tie_breakers_without_weights():
+    df = pd.DataFrame([
+        {"code": "600000", "screen_score": 80, "factor_stability_score": 70, "factor_activity_score": 50},
+        {"code": "000001", "screen_score": 80, "factor_stability_score": 70, "factor_activity_score": 50},
+        {"code": "300001", "screen_score": 80, "factor_stability_score": 75, "factor_activity_score": 10},
+    ])
+
+    sorted_df = _sort_screened_candidates(df, ScreeningConfig())
+
+    assert list(sorted_df["code"]) == ["300001", "000001", "600000"]

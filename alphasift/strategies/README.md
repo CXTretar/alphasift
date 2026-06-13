@@ -15,19 +15,22 @@
 - `portfolio_profile`：LLM 行业/主题风险桶
 - `scorecard_profile`：默认 L3 scorecard 加减分规则
 
-`capital_heat` 和 `balanced_alpha` 已包含可选 `theme_heat` 因子；当本地映射或 `industry-cache` 提供 `board_heat_score`、`board_heat_trend_score`、`board_heat_persistence_score`、`board_heat_cooling_score` 时，板块/主题热度、持续性和升温/降温趋势会进入软评分和 LLM 上下文。
+内置策略参考多因子 ranking / sector-neutral screening 的常见做法：单一风格不只靠一个静态指标排序，价值类策略也会叠加动量、活跃度或反转确认；趋势/短线策略会加入稳定性和主题热度约束；组合层通过 `portfolio_profile` 限制同一风险桶连续占位。
+
+`capital_heat`、`balanced_alpha`、`momentum_quality` 和 `volume_breakout` 已包含可选 `theme_heat` 因子；当本地映射或 `industry-cache` 提供 `board_heat_score`、`board_heat_trend_score`、`board_heat_persistence_score`、`board_heat_cooling_score` 时，板块/主题热度、持续性和升温/降温趋势会进入软评分和 LLM 上下文。
 
 ## 可用策略
 
 | 文件 | 名称 | 分类 | 说明 |
 |------|------|------|------|
 | `shrink_pullback.yaml` | 缩量回踩 | trend | L1 后候选级日 K 增强，识别均线多头与回踩结构 |
-| `dual_low.yaml` | 双低选股 | value | 低 PE + 低 PB 稳健筛选 |
-| `volume_breakout.yaml` | 放量突破 | trend | 放量突破关键阻力位 |
-| `quality_value.yaml` | 稳健价值 | value | 估值合理、流动性充足、波动不过热 |
-| `capital_heat.yaml` | 资金热度 | momentum | 资金活跃、量价同步但未极端过热 |
-| `oversold_reversal.yaml` | 超跌反转 | reversal | 跌幅可控且流动性仍在的修复候选 |
-| `balanced_alpha.yaml` | 均衡多因子 | framework | 综合估值、资金、动量、稳定性 |
+| `dual_low.yaml` | 双低选股 | value | 低 PE + 低 PB 为基础，加入活跃度/动量/反转确认，减少静态低估值票反复霸榜 |
+| `volume_breakout.yaml` | 放量突破 | trend | 放量突破关键阻力位，并结合主题热度和追高惩罚 |
+| `quality_value.yaml` | 稳健价值 | value | 估值合理、流动性充足、波动不过热，并要求温和动态确认 |
+| `capital_heat.yaml` | 资金热度 | momentum | 资金活跃、量价同步但未极端过热，避免高换手脉冲过拟合 |
+| `oversold_reversal.yaml` | 超跌反转 | reversal | 跌幅可控且流动性仍在的修复候选，叠加适度活跃度确认 |
+| `balanced_alpha.yaml` | 均衡多因子 | framework | 综合估值、资金、动量、稳定性、反转和主题热度 |
+| `momentum_quality.yaml` | 趋势质量 | framework | 兼顾趋势确认、质量约束、主题热度和组合分散的中线候选发现 |
 
 ## 运行与评估
 

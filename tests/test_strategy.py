@@ -35,6 +35,38 @@ def test_list_strategies_returns_enabled_strategies_only():
     ]
 
 
+def test_dual_low_strategy_uses_dynamic_snapshot_signals():
+    strat = load_strategy(Path("strategies/dual_low.yaml"))
+    screening = strat.screening
+
+    assert strat.version == "1.2"
+    assert "dynamic_signal" in strat.tags
+    assert screening.hard_filters.pe_ttm_min == 0
+    assert screening.hard_filters.pb_min == 0
+    assert screening.hard_filters.change_pct_min == -4.5
+    assert screening.hard_filters.change_pct_max == 4.5
+    assert screening.factor_weights["value"] < 0.40
+    assert screening.factor_weights["momentum"] > 0
+    assert screening.factor_weights["activity"] > 0
+    assert screening.factor_weights["reversal"] > 0
+    assert sum(screening.factor_weights.values()) == pytest.approx(1.0)
+
+
+def test_builtin_strategy_factor_weights_are_normalized_and_diversified():
+    strategies = load_all_strategies(Path("strategies"))
+
+    for strat in strategies.values():
+        weights = strat.screening.factor_weights
+        assert sum(weights.values()) == pytest.approx(1.0), strat.name
+        assert len([factor for factor, weight in weights.items() if weight > 0]) >= 4, strat.name
+
+    for name in ("dual_low", "quality_value"):
+        weights = strategies[name].screening.factor_weights
+        assert weights["value"] <= 0.34
+        assert weights["momentum"] > 0
+        assert weights["activity"] > 0
+
+
 def test_load_all_strategies_allows_repo_local_custom_strategy(tmp_path):
     repo_dir = Path("strategies")
     for src in repo_dir.glob("*.yaml"):

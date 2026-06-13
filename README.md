@@ -129,6 +129,7 @@ AlphaSift is designed to reuse LiteLLM-style configuration used by `daily_stock_
 | `INDUSTRY_MAP_FILES` | No | Local code-to-industry/concepts/board-heat files | - |
 | `INDUSTRY_PROVIDER` | No | Optional board/industry provider such as `akshare` | `none` |
 | `SNAPSHOT_SOURCE_PRIORITY` | No | Snapshot source order | Depends on Tushare token |
+| `SNAPSHOT_FALLBACK_MAX_AGE_HOURS` | No | Max acceptable age for last-good snapshot fallback; empty disables the guard | - |
 | `TUSHARE_TOKEN` / `TUSHARE_API_TOKEN` | For Tushare | Tushare Pro token | - |
 | `POST_ANALYZERS` | No | L3 analyzers; set `none` to disable | `scorecard` |
 | `DSA_API_URL` | For DSA analyzer | DSA service URL or full analysis endpoint | - |
@@ -189,7 +190,7 @@ tushare -> efinance -> akshare_em -> em_datacenter
 | `em_datacenter` | Eastmoney Data Center | Often available outside trading hours |
 | `tushare` | Tushare Pro `daily` + `daily_basic` | Requires token; previous/nearest trading day data |
 
-If a source is unavailable or lacks fields required by a strategy, AlphaSift skips it and tries the next source.
+If a source is unavailable or lacks fields required by a strategy, AlphaSift skips it and tries the next source. If all live sources fail, the last-good snapshot fallback is explicitly marked as stale/fallback data; `SNAPSHOT_FALLBACK_MAX_AGE_HOURS` can reject overly old fallback cache to avoid repeating stale selections.
 
 ## Built-in strategies
 

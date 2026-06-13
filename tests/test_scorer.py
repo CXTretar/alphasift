@@ -37,6 +37,69 @@ def test_value_factor_favors_lower_positive_pe_and_pb():
     assert scored.loc["low", "factor_value_score"] > scored.loc["high", "factor_value_score"]
 
 
+def test_dynamic_value_weights_narrow_static_deep_value_advantage():
+    df = pd.DataFrame([
+        {
+            "code": "static_deep_value",
+            "pe_ratio": 5.0,
+            "pb_ratio": 0.5,
+            "amount": 80_000_000,
+            "turnover_rate": 0.2,
+            "volume_ratio": 0.4,
+            "change_pct": -4.0,
+        },
+        {
+            "code": "active_value",
+            "pe_ratio": 7.0,
+            "pb_ratio": 0.7,
+            "amount": 200_000_000,
+            "turnover_rate": 2.0,
+            "volume_ratio": 1.2,
+            "change_pct": 1.0,
+        },
+    ])
+
+    static_scored = compute_screen_scores(
+        df,
+        ScreeningConfig(factor_weights={"value": 0.55, "liquidity": 0.15, "stability": 0.20, "size": 0.10}),
+    ).set_index("code")
+    dynamic_scored = compute_screen_scores(
+        df,
+        ScreeningConfig(
+            factor_weights={
+                "value": 0.34,
+                "stability": 0.20,
+                "liquidity": 0.14,
+                "momentum": 0.10,
+                "activity": 0.10,
+                "reversal": 0.06,
+                "size": 0.06,
+            },
+            scoring_profile={
+                "momentum_chase_start_pct": 2.5,
+                "momentum_chase_penalty_slope": 18.0,
+                "activity_ideal_volume_ratio": 1.2,
+                "activity_ideal_turnover_rate": 2.0,
+            },
+        ),
+    ).set_index("code")
+
+    static_gap = float(static_scored.loc["static_deep_value", "screen_score"]) - float(
+        static_scored.loc["active_value", "screen_score"]
+    )
+    dynamic_gap = float(dynamic_scored.loc["static_deep_value", "screen_score"]) - float(
+        dynamic_scored.loc["active_value", "screen_score"]
+    )
+
+    assert float(dynamic_scored.loc["active_value", "factor_momentum_score"]) > float(
+        dynamic_scored.loc["static_deep_value", "factor_momentum_score"]
+    )
+    assert float(dynamic_scored.loc["active_value", "factor_activity_score"]) > float(
+        dynamic_scored.loc["static_deep_value", "factor_activity_score"]
+    )
+    assert dynamic_gap < static_gap
+
+
 def test_scoring_profile_can_tighten_intraday_chase_penalty():
     df = pd.DataFrame([{"code": "hot", "change_pct": 6.0}])
 
