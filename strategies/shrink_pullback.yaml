@@ -2,7 +2,7 @@
 name: shrink_pullback
 display_name: 缩量回踩
 description: 上升趋势中缩量回踩均线支撑，趋势延续的入场机会
-version: "1.0"
+version: "1.1"
 category: trend
 tags: [trend, pullback, daily_k]
 
@@ -21,14 +21,16 @@ screening:
     pullback_to_ma20_pct_max: 8.0
   tech_weight: 0.5
   factor_weights:
-    momentum: 0.35
-    stability: 0.20
-    activity: 0.20
+    momentum: 0.32
+    stability: 0.22
+    activity: 0.18
     liquidity: 0.15
-    value: 0.10
+    value: 0.08
+    reversal: 0.05
   scoring_profile:
     momentum_60d_overheat_pct: 35.0
     momentum_chase_start_pct: 5.0
+    momentum_chase_penalty_slope: 14.0
     activity_ideal_volume_ratio: 1.0
     activity_ideal_turnover_rate: 2.5
     activity_high_volume_ratio: 4.5
@@ -45,6 +47,7 @@ screening:
       金融: [券商, 银行, 保险]
       AI算力: [AI算力, 算力, 数据中心, 服务器, 光模块]
       新能源: [新能源, 光伏, 锂电, 电池, 储能]
+      机器人: [机器人, 减速器, 执行器, 伺服]
   scorecard_profile:
     capital_confirmed_bonus: 1.4
     volume_spike_ratio: 4.5

@@ -46,6 +46,7 @@ def fetch_snapshot_with_fallback(
     *,
     required_columns: list[str] | None = None,
     fallback_snapshot_path: str | Path | None = None,
+    fallback_max_age_hours: float | None = None,
     market: str = "cn",
 ) -> pd.DataFrame:
     """Try live sources, optionally falling back to the last-good snapshot."""
@@ -81,6 +82,7 @@ def fetch_snapshot_with_fallback(
         fallback_snapshot_path,
         required_columns=required,
         source_errors=errors,
+        max_age_hours=fallback_max_age_hours,
     )
     if cached is not None:
         return cached
@@ -145,6 +147,7 @@ def _read_last_good_snapshot(
     *,
     required_columns: list[str],
     source_errors: list[str],
+    max_age_hours: float | None = None,
 ) -> pd.DataFrame | None:
     if path_like is None:
         return None
@@ -165,6 +168,14 @@ def _read_last_good_snapshot(
         data = frame.get("data")
         if not isinstance(columns, list) or not isinstance(data, list):
             raise ValueError("malformed cached frame")
+        stale_age_hours = _cache_stale_age_hours(
+            stat.st_mtime,
+            created_at=str(payload.get("created_at", "")),
+        )
+        if max_age_hours is not None and max_age_hours >= 0 and stale_age_hours > max_age_hours:
+            raise ValueError(
+                f"cache stale_age_hours={stale_age_hours:.4g} exceeds max_age_hours={max_age_hours:.4g}"
+            )
         cached = pd.DataFrame(data, columns=columns)
         if cached.empty:
             raise ValueError("cached snapshot is empty")
@@ -178,7 +189,7 @@ def _read_last_good_snapshot(
     cached.attrs["snapshot_source"] = "last_good_cache"
     cached.attrs["fallback_used"] = True
     cached.attrs["stale"] = True
-    cached.attrs["stale_age_hours"] = _cache_stale_age_hours(stat.st_mtime)
+    cached.attrs["stale_age_hours"] = stale_age_hours
     cached.attrs["source_errors"] = list(source_errors)
     metadata = payload.get("metadata")
     if isinstance(metadata, dict):
@@ -194,10 +205,22 @@ def _read_last_good_snapshot(
     return cached
 
 
-def _cache_stale_age_hours(mtime: float) -> float:
-    modified = datetime.fromtimestamp(mtime, tz=timezone.utc)
+def _cache_stale_age_hours(mtime: float, *, created_at: str = "") -> float:
+    modified = _parse_created_at(created_at) or datetime.fromtimestamp(mtime, tz=timezone.utc)
     age_hours = (datetime.now(timezone.utc) - modified).total_seconds() / 3600.0
     return round(max(age_hours, 0.0), 4)
+
+
+def _parse_created_at(value: str) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 
 def _fetch_efinance() -> pd.DataFrame:

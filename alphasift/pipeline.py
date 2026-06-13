@@ -125,6 +125,7 @@ def screen(
         config.snapshot_source_priority,
         required_columns=_required_snapshot_columns(snapshot_filters),
         fallback_snapshot_path=config.fallback_snapshot_path,
+        fallback_max_age_hours=config.snapshot_fallback_max_age_hours,
         market=market,
     )
     effective_industry_map_files = (
@@ -187,7 +188,7 @@ def screen(
     daily_enriched = False
     daily_enrich_count = 0
     if daily_needed or daily_requested:
-        provisional = compute_screen_scores(df, screening).sort_values("screen_score", ascending=False)
+        provisional = _sort_screened_candidates(compute_screen_scores(df, screening), screening)
         enrich_count = min(daily_limit, len(provisional))
         daily_candidates = provisional.head(enrich_count)
         try:
@@ -243,8 +244,7 @@ def screen(
         )
 
     # 4. Compute screen_score
-    df = compute_screen_scores(df, screening)
-    df = df.sort_values("screen_score", ascending=False)
+    df = _sort_screened_candidates(compute_screen_scores(df, screening), screening)
 
     # 5. Take Top K for LLM ranking
     top_k = min(
@@ -479,6 +479,31 @@ def _df_to_picks(df: pd.DataFrame) -> list[Pick]:
             factor_scores=factor_scores,
         ))
     return picks
+
+
+def _sort_screened_candidates(df: pd.DataFrame, screening=None) -> pd.DataFrame:
+    """Sort scored candidates deterministically with factor-aware tie breakers."""
+    factor_order = ["stability", "activity", "momentum", "value"]
+    if screening is not None and screening.factor_weights:
+        factor_order = [
+            factor
+            for factor, _weight in sorted(
+                screening.factor_weights.items(),
+                key=lambda item: (-float(item[1]), item[0]),
+            )
+        ]
+    sort_columns = [
+        column
+        for column in ["screen_score"] + [f"factor_{factor}_score" for factor in factor_order]
+        if column in df.columns
+    ]
+    ascending = [False] * len(sort_columns)
+    if "code" in df.columns:
+        sort_columns.append("code")
+        ascending.append(True)
+    if not sort_columns:
+        return df
+    return df.sort_values(sort_columns, ascending=ascending, kind="mergesort")
 
 
 def _required_snapshot_columns(filters) -> list[str]:

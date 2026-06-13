@@ -57,7 +57,7 @@ alphasift/
 | `em_datacenter` | data.eastmoney.com | 选股器 API，非交易时段可用 |
 | `tushare` | Tushare Pro `daily` + `daily_basic` | 最近交易日数据，需 `TUSHARE_TOKEN`，非实时 |
 
-周末或节假日 push2 接口不可用时，会自动降级到 `em_datacenter`。如果某个数据源缺少当前策略必需字段，例如 PB，系统会跳过该源继续尝试后续来源。
+周末或节假日 push2 接口不可用时，会自动降级到 `em_datacenter`。如果某个数据源缺少当前策略必需字段，例如 PB，系统会跳过该源继续尝试后续来源。所有实时源失败时可回退到 last-good 快照，并通过 `fallback_used/stale/stale_age_hours/source_errors` 暴露质量语义；如设置 `SNAPSHOT_FALLBACK_MAX_AGE_HOURS`，超过该年龄的缓存不会被使用。
 
 ## 已知限制
 

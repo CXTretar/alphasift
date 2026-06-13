@@ -44,6 +44,7 @@ def evaluate_saved_run(
         current_snapshot = fetch_snapshot_with_fallback(
             config.snapshot_source_priority,
             fallback_snapshot_path=config.fallback_snapshot_path,
+            fallback_max_age_hours=config.snapshot_fallback_max_age_hours,
         )
     if cost_bps is None:
         cost_bps = config.evaluation_cost_bps
@@ -247,6 +248,7 @@ def evaluate_saved_runs(
         current_snapshot = fetch_snapshot_with_fallback(
             config.snapshot_source_priority,
             fallback_snapshot_path=config.fallback_snapshot_path,
+            fallback_max_age_hours=config.snapshot_fallback_max_age_hours,
         )
     if cost_bps is None:
         cost_bps = config.evaluation_cost_bps

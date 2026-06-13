@@ -1,5 +1,5 @@
 import json
-import os
+from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 import pytest
@@ -249,9 +249,10 @@ def test_snapshot_fallback_marks_stale_source_metadata(monkeypatch, tmp_path):
     monkeypatch.setattr("alphasift.snapshot.fetch_cn_snapshot", lambda source: live)
     fetch_snapshot_with_fallback(["good"], fallback_snapshot_path=cache_path)
 
-    old_mtime = cache_path.stat().st_mtime - (3 * 3600)
-    cache_path.touch()
-    os.utime(cache_path, (old_mtime, old_mtime))
+    created_at = (datetime.now(timezone.utc) - timedelta(hours=3)).isoformat()
+    payload = json.loads(cache_path.read_text(encoding="utf-8"))
+    payload["created_at"] = created_at
+    cache_path.write_text(json.dumps(payload), encoding="utf-8")
 
     monkeypatch.setattr(
         "alphasift.snapshot.fetch_cn_snapshot",
@@ -268,6 +269,31 @@ def test_snapshot_fallback_marks_stale_source_metadata(monkeypatch, tmp_path):
     assert cached.attrs["stale"] is True
     assert cached.attrs["stale_age_hours"] == pytest.approx(3.0, abs=0.1)
     assert cached.attrs["source_errors"] == ["efinance: offline"]
+
+
+def test_snapshot_fallback_rejects_cache_older_than_max_age(monkeypatch, tmp_path):
+    cache_path = tmp_path / "snapshot.last_good.json"
+    live = pd.DataFrame([{"code": "000001", "name": "示例", "price": 10.0}])
+    live.attrs["snapshot_source"] = "good"
+    monkeypatch.setattr("alphasift.snapshot.fetch_cn_snapshot", lambda source: live)
+    fetch_snapshot_with_fallback(["good"], fallback_snapshot_path=cache_path)
+
+    created_at = (datetime.now(timezone.utc) - timedelta(hours=3)).isoformat()
+    payload = json.loads(cache_path.read_text(encoding="utf-8"))
+    payload["created_at"] = created_at
+    cache_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    monkeypatch.setattr(
+        "alphasift.snapshot.fetch_cn_snapshot",
+        lambda source: (_ for _ in ()).throw(RuntimeError("offline")),
+    )
+
+    with pytest.raises(RuntimeError, match="last_good_cache: cache stale_age_hours=.*exceeds max_age_hours=1"):
+        fetch_snapshot_with_fallback(
+            ["efinance"],
+            fallback_snapshot_path=cache_path,
+            fallback_max_age_hours=1,
+        )
 
 
 def test_fetch_snapshot_with_fallback_raises_all_errors(monkeypatch):
