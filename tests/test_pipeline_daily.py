@@ -73,6 +73,78 @@ def test_pipeline_enriches_daily_features_for_daily_strategy(monkeypatch):
     assert any("Daily K-line enrichment attempted 2 candidates" in item for item in result.degradation)
 
 
+def test_volume_breakout_accepts_sina_snapshot_without_live_volume_ratio(monkeypatch):
+    df = pd.DataFrame(
+        [
+            {
+                "code": "000001",
+                "name": "平安银行",
+                "price": 10.0,
+                "change_pct": 3.2,
+                "amount": 220_000_000,
+                "turnover_rate": 4.5,
+                "pe_ratio": 8.0,
+                "pb_ratio": 0.8,
+            },
+            {
+                "code": "600000",
+                "name": "浦发银行",
+                "price": 11.0,
+                "change_pct": 3.0,
+                "amount": 190_000_000,
+                "turnover_rate": 4.0,
+                "pe_ratio": 9.0,
+                "pb_ratio": 0.9,
+            },
+        ]
+    )
+    df.attrs["snapshot_source"] = "sina"
+
+    captured_required_columns: list[str] = []
+
+    def fake_fetch(_sources, **kwargs):
+        captured_required_columns.extend(kwargs["required_columns"])
+        assert "volume_ratio" not in kwargs["required_columns"]
+        return df
+
+    def fake_enrich(frame, **kwargs):
+        enriched = frame.copy()
+        for idx, row in enriched.iterrows():
+            is_target = row["code"] == "000001"
+            enriched.at[idx, "price_above_ma20"] = True
+            enriched.at[idx, "signal_score"] = 72 if is_target else 58
+            enriched.at[idx, "macd_status"] = "bullish"
+            enriched.at[idx, "breakout_20d_pct"] = 0.6 if is_target else -2.5
+            enriched.at[idx, "range_20d_pct"] = 24 if is_target else 28
+            enriched.at[idx, "volume_ratio_20d"] = 1.8 if is_target else 1.4
+            enriched.at[idx, "body_pct"] = 1.2 if is_target else 0.8
+            enriched.at[idx, "consolidation_days_20d"] = 10 if is_target else 9
+        return enriched
+
+    monkeypatch.setattr("alphasift.pipeline.fetch_snapshot_with_fallback", fake_fetch)
+    monkeypatch.setattr("alphasift.pipeline.enrich_daily_features", fake_enrich)
+
+    result = screen(
+        "volume_breakout",
+        use_llm=False,
+        post_analyzers=[],
+        config=Config(
+            llm_api_key="",
+            snapshot_source_priority=["sina"],
+            strategies_dir=Path("strategies"),
+            risk_enabled=False,
+        ),
+    )
+
+    assert "volume_ratio" not in captured_required_columns
+    assert result.snapshot_source == "sina"
+    assert result.daily_enriched is True
+    assert result.after_filter_count == 1
+    assert result.picks[0].code == "000001"
+    assert result.picks[0].volume_ratio is None
+    assert result.picks[0].volume_ratio_20d == 1.8
+
+
 def test_pipeline_preserves_degradation_when_hard_filter_empty(monkeypatch):
     df = pd.DataFrame([
         {

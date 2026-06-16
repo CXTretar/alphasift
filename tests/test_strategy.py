@@ -4,6 +4,8 @@ from pathlib import Path
 import pytest
 
 import alphasift.strategy as strategy_module
+from alphasift.filter import without_daily_filters
+from alphasift.pipeline import _required_snapshot_columns
 from alphasift.strategy import list_strategies, load_all_strategies, load_strategy
 
 
@@ -50,6 +52,18 @@ def test_dual_low_strategy_uses_dynamic_snapshot_signals():
     assert screening.factor_weights["activity"] > 0
     assert screening.factor_weights["reversal"] > 0
     assert sum(screening.factor_weights.values()) == pytest.approx(1.0)
+
+
+def test_volume_breakout_does_not_require_live_volume_ratio_snapshot_column():
+    strat = load_strategy(Path("strategies/volume_breakout.yaml"))
+    screening = strat.screening
+    snapshot_filters = without_daily_filters(screening.hard_filters)
+
+    assert strat.version == "1.3"
+    assert screening.hard_filters.volume_ratio_min is None
+    assert screening.hard_filters.volume_ratio_20d_min == 1.3
+    assert "volume_ratio" not in _required_snapshot_columns(snapshot_filters)
+    assert "turnover_rate" in _required_snapshot_columns(snapshot_filters)
 
 
 def test_builtin_strategy_factor_weights_are_normalized_and_diversified():

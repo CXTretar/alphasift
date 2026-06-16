@@ -1,8 +1,8 @@
 # 放量突破选股策略
 name: volume_breakout
 display_name: 放量突破
-description: 成交量放大突破关键阻力位，趋势启动信号
-version: "1.2"
+description: 依托日线放量与形态确认突破关键阻力位，实时量比可用时参与评分但不作为快照硬依赖
+version: "1.3"
 category: trend
 tags: [momentum, volume, breakout]
 
@@ -13,7 +13,6 @@ screening:
     exclude_st: true
     amount_min: 100000000
     turnover_rate_min: 3.0
-    volume_ratio_min: 2.0
     change_pct_min: 2.0
     change_pct_max: 9.9
     require_price_above_ma20: true
