@@ -54,6 +54,7 @@ class ScreeningConfig:
     portfolio_profile: dict[str, Any] = field(default_factory=dict)
     scorecard_profile: dict[str, Any] = field(default_factory=dict)
     event_profile: dict[str, Any] = field(default_factory=dict)
+    relaxation_profile: dict[str, Any] = field(default_factory=dict)
     ranking_hints: str = ""
     max_output: int = 5
 

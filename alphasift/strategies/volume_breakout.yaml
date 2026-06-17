@@ -1,8 +1,8 @@
 # 放量突破选股策略
 name: volume_breakout
 display_name: 放量突破
-description: 依托日线放量与形态确认突破关键阻力位，实时量比可用时参与评分但不作为快照硬依赖
-version: "1.3"
+description: 依托日线放量与形态确认突破关键阻力位；推荐模式下严格候选不足时逐级放宽日线形态约束，实时量比不作为快照硬依赖
+version: "1.4"
 category: trend
 tags: [momentum, volume, breakout]
 
@@ -23,6 +23,31 @@ screening:
     volume_ratio_20d_min: 1.3
     body_pct_min: 0.5
     consolidation_days_20d_min: 8
+  relaxation_profile:
+    min_candidates: 3
+    stages:
+      - signal_score_min: 55
+        breakout_20d_pct_min: -3.0
+        range_20d_pct_max: 55.0
+        volume_ratio_20d_min: 0.8
+        body_pct_min: 0.2
+        consolidation_days_20d_min: 0
+      - require_price_above_ma20: false
+        signal_score_min: 45
+        macd_status_whitelist: [bullish, neutral, bearish]
+        breakout_20d_pct_min: -6.0
+        range_20d_pct_max: 80.0
+        volume_ratio_20d_min: 0.5
+        body_pct_min: null
+        consolidation_days_20d_min: null
+      - require_price_above_ma20: false
+        signal_score_min: null
+        macd_status_whitelist: null
+        breakout_20d_pct_min: null
+        range_20d_pct_max: null
+        volume_ratio_20d_min: null
+        body_pct_min: null
+        consolidation_days_20d_min: null
   tech_weight: 0.6
   factor_weights:
     momentum: 0.32

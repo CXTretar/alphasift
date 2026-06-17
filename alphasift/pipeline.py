@@ -3,6 +3,7 @@
 
 import logging
 import uuid
+from dataclasses import replace
 from pathlib import Path
 
 import pandas as pd
@@ -14,7 +15,7 @@ from alphasift.daily import enrich_daily_features
 from alphasift.dsa_provider import apply_dsa_provider_context
 from alphasift.filter import apply_hard_filters, requires_daily_features, without_daily_filters
 from alphasift.industry import enrich_industry_concepts
-from alphasift.models import Pick, ScreenResult
+from alphasift.models import Pick, ScreenResult, ScreeningConfig
 from alphasift.normalize import (
     normalize_code,
     safe_bool as _safe_bool,
@@ -30,6 +31,55 @@ from alphasift.snapshot import fetch_snapshot_with_fallback
 from alphasift.strategy import load_all_strategies
 
 logger = logging.getLogger(__name__)
+
+
+def _apply_relaxed_daily_filters(
+    strict_df: pd.DataFrame,
+    enriched_df: pd.DataFrame,
+    screening: ScreeningConfig,
+    target_count: int,
+    degradation: list[str],
+) -> pd.DataFrame:
+    profile = screening.relaxation_profile or {}
+    min_candidates = int(profile.get("min_candidates") or 0)
+    if min_candidates < 1 or len(strict_df) >= min_candidates:
+        return strict_df
+
+    target = min(min_candidates, max(target_count, 1))
+    if len(strict_df) >= target:
+        return strict_df
+
+    combined = strict_df.copy()
+    stages = profile.get("stages") or []
+    for index, overrides in enumerate(stages, start=1):
+        relaxed_filters = replace(screening.hard_filters, **dict(overrides))
+        relaxed_df = apply_hard_filters(enriched_df, relaxed_filters)
+        combined = _merge_candidate_frames(combined, relaxed_df)
+        degradation.append(
+            "Daily hard filter relaxation stage "
+            f"{index}: strict={len(strict_df)}, relaxed={len(relaxed_df)}, "
+            f"combined={len(combined)}, target={target}"
+        )
+        if len(combined) >= target:
+            return combined
+
+    if stages:
+        degradation.append(
+            "Daily hard filter relaxation exhausted: "
+            f"combined={len(combined)}, target={target}"
+        )
+    return combined
+
+
+def _merge_candidate_frames(primary: pd.DataFrame, secondary: pd.DataFrame) -> pd.DataFrame:
+    if primary.empty:
+        return secondary.copy()
+    if secondary.empty:
+        return primary.copy()
+    merged = pd.concat([primary, secondary], ignore_index=True)
+    if "code" not in merged.columns:
+        return merged.drop_duplicates()
+    return merged.drop_duplicates(subset=["code"], keep="first")
 
 
 def screen(
@@ -187,6 +237,7 @@ def screen(
 
     daily_enriched = False
     daily_enrich_count = 0
+    daily_enriched_frame: pd.DataFrame | None = None
     if daily_needed or daily_requested:
         provisional = _sort_screened_candidates(compute_screen_scores(df, screening), screening)
         enrich_count = min(daily_limit, len(provisional))
@@ -201,6 +252,7 @@ def screen(
                 max_workers=config.daily_fetch_max_workers,
             )
             daily_enriched = True
+            daily_enriched_frame = enriched
             daily_errors = [str(item) for item in enriched.attrs.get("daily_errors", [])]
             daily_enrich_count = int(enriched.attrs.get("daily_success_count", len(enriched)))
             degradation.append(
@@ -223,6 +275,16 @@ def screen(
                     f"{exc}"
                 ) from exc
             degradation.append(f"Daily K-line enrichment skipped: {exc}")
+
+    if daily_needed and daily_enriched_frame is not None:
+        df = _apply_relaxed_daily_filters(
+            df,
+            daily_enriched_frame,
+            screening,
+            output_count,
+            degradation,
+        )
+        after_filter_count = len(df)
 
     if df.empty:
         return ScreenResult(

@@ -37,10 +37,12 @@ _SCREENING_KEYS = {
     "portfolio_profile",
     "scorecard_profile",
     "event_profile",
+    "relaxation_profile",
     "ranking_hints",
     "max_output",
 }
 _HARD_FILTER_KEYS = set(HardFilterConfig.__dataclass_fields__.keys())
+_RELAXATION_PROFILE_KEYS = {"min_candidates", "stages"}
 _SCORING_PROFILE_KEYS = {
     "momentum_base",
     "momentum_intraday_slope",
@@ -179,6 +181,14 @@ def load_strategy(filepath: Path) -> Strategy:
         raise ValueError(f"Invalid hard_filters section in strategy file: {filepath}")
     _raise_unknown_keys(hf_data, _HARD_FILTER_KEYS, f"hard_filters section of {filepath.name}")
 
+    relaxation_profile = _optional_mapping(
+        screening_data,
+        "relaxation_profile",
+        filepath,
+        allowed_keys=_RELAXATION_PROFILE_KEYS,
+    )
+    _validate_relaxation_profile(relaxation_profile, filepath)
+
     hard_filters = HardFilterConfig(**hf_data)
 
     screening = ScreeningConfig(
@@ -202,6 +212,7 @@ def load_strategy(filepath: Path) -> Strategy:
         event_profile=_optional_mapping(
             screening_data, "event_profile", filepath, allowed_keys=_EVENT_PROFILE_KEYS
         ),
+        relaxation_profile=relaxation_profile,
         ranking_hints=screening_data.get("ranking_hints", ""),
         max_output=screening_data.get("max_output", 5),
     )
@@ -326,3 +337,30 @@ def _optional_mapping(
         raise ValueError(f"Invalid {key} section in strategy file: {filepath}")
     _raise_unknown_keys(value, allowed_keys, f"{key} section of {filepath.name}")
     return value
+
+
+def _validate_relaxation_profile(profile: dict, filepath: Path) -> None:
+    if not profile:
+        return
+    min_candidates = profile.get("min_candidates")
+    if min_candidates is not None and (
+        not isinstance(min_candidates, int) or min_candidates < 1
+    ):
+        raise ValueError(
+            f"Invalid relaxation_profile.min_candidates in strategy file: {filepath}"
+        )
+    stages = profile.get("stages", [])
+    if stages is None:
+        return
+    if not isinstance(stages, list):
+        raise ValueError(f"Invalid relaxation_profile.stages in strategy file: {filepath}")
+    for index, stage in enumerate(stages, start=1):
+        if not isinstance(stage, dict):
+            raise ValueError(
+                f"Invalid relaxation_profile.stages[{index}] in strategy file: {filepath}"
+            )
+        _raise_unknown_keys(
+            stage,
+            _HARD_FILTER_KEYS,
+            f"relaxation_profile.stages[{index}] of {filepath.name}",
+        )

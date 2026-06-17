@@ -126,6 +126,7 @@ def test_volume_breakout_accepts_sina_snapshot_without_live_volume_ratio(monkeyp
 
     result = screen(
         "volume_breakout",
+        max_output=1,
         use_llm=False,
         post_analyzers=[],
         config=Config(
@@ -143,6 +144,65 @@ def test_volume_breakout_accepts_sina_snapshot_without_live_volume_ratio(monkeyp
     assert result.picks[0].code == "000001"
     assert result.picks[0].volume_ratio is None
     assert result.picks[0].volume_ratio_20d == 1.8
+
+
+def test_volume_breakout_relaxes_daily_filters_to_keep_minimum_candidates(monkeypatch):
+    df = pd.DataFrame(
+        [
+            {
+                "code": f"00000{idx}",
+                "name": f"候选{idx}",
+                "price": 10.0 + idx,
+                "change_pct": 2.5 + idx * 0.1,
+                "amount": 220_000_000 + idx,
+                "turnover_rate": 4.0,
+                "pe_ratio": 8.0,
+                "pb_ratio": 0.8,
+            }
+            for idx in range(1, 6)
+        ]
+    )
+    df.attrs["snapshot_source"] = "sina"
+
+    def fake_fetch(_sources, **kwargs):
+        assert "volume_ratio" not in kwargs["required_columns"]
+        return df
+
+    def fake_enrich(frame, **kwargs):
+        enriched = frame.copy()
+        for idx in enriched.index:
+            enriched.at[idx, "price_above_ma20"] = False
+            enriched.at[idx, "signal_score"] = 30
+            enriched.at[idx, "macd_status"] = "bearish"
+            enriched.at[idx, "breakout_20d_pct"] = -12.0
+            enriched.at[idx, "range_20d_pct"] = 95.0
+            enriched.at[idx, "volume_ratio_20d"] = 0.2
+            enriched.at[idx, "body_pct"] = -0.5
+            enriched.at[idx, "consolidation_days_20d"] = 0
+        return enriched
+
+    monkeypatch.setattr("alphasift.pipeline.fetch_snapshot_with_fallback", fake_fetch)
+    monkeypatch.setattr("alphasift.pipeline.enrich_daily_features", fake_enrich)
+
+    result = screen(
+        "volume_breakout",
+        max_output=3,
+        use_llm=False,
+        post_analyzers=[],
+        config=Config(
+            llm_api_key="",
+            snapshot_source_priority=["sina"],
+            strategies_dir=Path("strategies"),
+            risk_enabled=False,
+        ),
+    )
+
+    assert result.snapshot_source == "sina"
+    assert result.daily_enriched is True
+    assert result.after_filter_count >= 3
+    assert len(result.picks) == 3
+    assert any("Daily hard filter relaxation stage" in item for item in result.degradation)
+    assert "No candidates after daily hard filter" not in result.degradation
 
 
 def test_pipeline_preserves_degradation_when_hard_filter_empty(monkeypatch):

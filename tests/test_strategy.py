@@ -59,9 +59,11 @@ def test_volume_breakout_does_not_require_live_volume_ratio_snapshot_column():
     screening = strat.screening
     snapshot_filters = without_daily_filters(screening.hard_filters)
 
-    assert strat.version == "1.3"
+    assert strat.version == "1.4"
     assert screening.hard_filters.volume_ratio_min is None
     assert screening.hard_filters.volume_ratio_20d_min == 1.3
+    assert screening.relaxation_profile["min_candidates"] == 3
+    assert len(screening.relaxation_profile["stages"]) == 3
     assert "volume_ratio" not in _required_snapshot_columns(snapshot_filters)
     assert "turnover_rate" in _required_snapshot_columns(snapshot_filters)
 
