@@ -45,6 +45,9 @@ def test_screen_returns_stable_dsa_contract(monkeypatch):
             strategy_category="value",
             snapshot_count=100,
             after_filter_count=3,
+            snapshot_source="sina",
+            daily_enriched=True,
+            daily_enrich_count=80,
             run_id="run123",
             llm_ranked=True,
             llm_coverage=1.0,
@@ -76,6 +79,11 @@ def test_screen_returns_stable_dsa_contract(monkeypatch):
             ],
             degradation=["fallback used"],
             source_errors=["source timeout"],
+            deep_analysis_requested=True,
+            post_analyzers=["scorecard", "dsa"],
+            risk_enabled=False,
+            portfolio_diversity_enabled=False,
+            portfolio_concentration_notes=["single industry concentration"],
         ),
     )
 
@@ -88,6 +96,14 @@ def test_screen_returns_stable_dsa_contract(monkeypatch):
     assert payload["run_id"] == "run123"
     assert payload["llm_ranked"] is True
     assert payload["llm_coverage"] == 1.0
+    assert payload["snapshot_source"] == "sina"
+    assert payload["daily_enriched"] is True
+    assert payload["daily_enrich_count"] == 80
+    assert payload["risk_enabled"] is False
+    assert payload["portfolio_diversity_enabled"] is False
+    assert payload["portfolio_concentration_notes"] == ["single industry concentration"]
+    assert payload["deep_analysis_requested"] is True
+    assert payload["post_analyzers"] == ["scorecard", "dsa"]
     assert payload["candidate_count"] == 1
     assert payload["warnings"] == ["fallback used"]
     assert payload["source_errors"] == ["source timeout"]
