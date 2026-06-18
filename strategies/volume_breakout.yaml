@@ -11,6 +11,7 @@ screening:
   market_scope: [cn]
   hard_filters:
     exclude_st: true
+    price_max: 300
     amount_min: 100000000
     turnover_rate_min: 3.0
     change_pct_min: 2.0

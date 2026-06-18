@@ -83,6 +83,19 @@ def test_builtin_strategy_factor_weights_are_normalized_and_diversified():
         assert weights["activity"] > 0
 
 
+def test_builtin_cn_strategies_have_price_cap_no_higher_than_300():
+    strategies = load_all_strategies(Path("strategies"))
+
+    for strat in strategies.values():
+        if "cn" not in strat.screening.market_scope:
+            continue
+
+        price_max = strat.screening.hard_filters.price_max
+
+        assert price_max is not None, strat.name
+        assert price_max <= 300, strat.name
+
+
 def test_load_all_strategies_allows_repo_local_custom_strategy(tmp_path):
     repo_dir = Path("strategies")
     for src in repo_dir.glob("*.yaml"):

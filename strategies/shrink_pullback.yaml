@@ -11,6 +11,7 @@ screening:
   market_scope: [cn]
   hard_filters:
     exclude_st: true
+    price_max: 300
     amount_min: 80000000
     turnover_rate_min: 1.0
     require_ma_bullish: true
